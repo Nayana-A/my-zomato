@@ -1,13 +1,15 @@
 {
-  "name": "my-zomato",
+  "name": "myzomato-app",
   "version": "1.0.0",
-  "description": "Static HTML, JS, and JSON project for Azure deployment",
+  "description": "Simple Node.js app for Azure App Service",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"No tests specified\" && exit 0",
-    "lint:json": "find . -name '*.json' -exec jq empty {} \\;",
-    "lint:html": "echo 'Checking HTML files...' && find . -name '*.html' -exec grep -q '<!DOCTYPE html>' {} \\;",
-    "lint:js": "echo 'Checking JS syntax...' && find . -name '*.js' -exec node --check {} \\;"
+    "start": "node server.js"
   },
-  "author": "",
-  "license": "MIT"
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": "20.x"
+  }
 }

@@ -6,8 +6,8 @@ on:
       - main  # 👈 change if you use another branch
 
 permissions:
-  id-token: write   # ✅ required for OIDC login
-  contents: read    # ✅ required to checkout code
+  id-token: write   
+  contents: read    
 
 jobs:
   build-and-deploy:
@@ -20,7 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: npm install

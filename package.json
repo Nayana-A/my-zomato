@@ -4,7 +4,9 @@
   "description": "Simple Node.js app for Azure App Service",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "npm install"
   },
   "dependencies": {
     "express": "^4.19.2"

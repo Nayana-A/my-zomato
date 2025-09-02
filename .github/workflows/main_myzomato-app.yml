@@ -41,3 +41,4 @@ jobs:
           app-name: 'myzomato-app'
           slot-name: 'Production'
           package: .
+          startup-command: 'npm start'

@@ -3,7 +3,7 @@ name: Deploy to Azure App Service
 on:
   push:
     branches:
-      - main  # 👈 change if you use another branch
+      - main
 
 jobs:
   build-and-deploy:
@@ -16,14 +16,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'   # 👈 match your App Service runtime
+          node-version: '18'
 
       - name: Install dependencies
         run: npm install
-
-      # Optional: build step (not needed for static HTML)
-      # - name: Build app
-      #   run: npm run build
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -33,7 +29,6 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B28C8A26E8B64CF781B15AF3ECE3C966 }}
 
       - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'myzomato-app'

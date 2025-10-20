@@ -1,0 +1,13 @@
+# deploy-to-aks.yml
+steps:
+- task: Kubernetes@1
+  displayName: 'Deploy to AKS'
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscriptionEndpoint: 'MyAzureConnection'  # ARM service connection
+    azureResourceGroup: 'my-rg'
+    kubernetesCluster: 'my-aks-cluster'
+    namespace: 'default'
+    command: 'apply'
+    useConfigurationFile: True
+    configuration: 'manifests/deployment.yaml'

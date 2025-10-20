@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foodcart-node
+  labels:
+    app: foodcart-node
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: foodcart-node
+  template:
+    metadata:
+      labels:
+        app: foodcart-node
+    spec:
+      containers:
+        - name: foodcart-node
+          image: myacr.azurecr.io/foodcart-node:$(Build.BuildId) # this will be replaced by pipeline
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: foodcart-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: foodcart-node
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

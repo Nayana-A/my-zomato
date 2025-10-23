@@ -7,9 +7,12 @@ pool:
 
 variables:
   imageName: 'foodcart-node'
+  acrName: 'myzomato'          # your ACR name
+  dockerfilePath: '.github/manifests/Dockerfile'
+  imageTag: '$(Build.BuildId)' # unique per build
 
 steps:
-# 1️⃣ Install dependencies and test
+# 1️⃣ Install Node.js and dependencies
 - task: NodeTool@0
   inputs:
     versionSpec: '20.x'
@@ -20,16 +23,17 @@ steps:
     npm test || echo "no tests"
   displayName: 'Install & Test'
 
-# 2️⃣ Build and push Docker image
+# 2️⃣ Build and push Docker image to ACR using Azure CLI
 - task: AzureCLI@2
-  displayName: 'Build and Push image using ACR Task'
+  displayName: 'Build & Push Docker image using ACR'
   inputs:
-    azureSubscription: 'ACR-myzomato'
+    azureSubscription: 'ACR-myzomato'  # your service connection
     scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
+      echo "Building Docker image and pushing to ACR..."
       az acr build \
-        --registry myzomato \
-        --image myimage:latest \
-        --file .github/manifests/Dockerfile \
+        --registry $(acrName) \
+        --image $(imageName):$(imageTag) \
+        --file $(dockerfilePath) \
         .

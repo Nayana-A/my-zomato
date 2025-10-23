@@ -7,7 +7,7 @@ variables:
   dockerRegistryServiceConnection: '467aebc6-c2d7-48d1-af79-d79a67c80398'
   imageRepository: 'foodcart-node'
   containerRegistry: 'myacr.azurecr.io'
-  dockerfilePath: 'Dockerfile'
+  dockerfilePath: '.github/manifests/Dockerfile'   # <-- update this to the actual path of your Dockerfile
   tag: '$(Build.BuildId)'
 
   # AKS
@@ -32,6 +32,12 @@ stages:
   - job: Build
     displayName: 'Build & Push'
     steps:
+
+    # Debug: list repo files
+    - script: |
+        echo "Listing repo files..."
+        ls -R
+      displayName: 'List files in repository'
 
     # Install Docker if not present
     - script: |

@@ -33,7 +33,7 @@ stages:
     displayName: 'Build & Push'
     steps:
 
-    # 🐳 Install Docker if not present (Linux agent example)
+    # Install Docker if not present
     - script: |
         echo "Installing Docker..."
         sudo apt-get update -y
@@ -48,27 +48,34 @@ stages:
         sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
         sudo systemctl start docker
         sudo systemctl enable docker
-        docker --version
+        sudo docker --version
       displayName: 'Install Docker on Agent'
 
-    # Verify Docker is available
+    # Verify Docker
     - script: |
         echo "Verifying Docker installation..."
-        docker version
+        sudo docker version
       displayName: 'Verify Docker Availability'
 
-    # Build and push Docker image to ACR
-    - task: Docker@2
-      displayName: 'Build and Push Image to ACR'
-      inputs:
-        command: buildAndPush
-        repository: $(imageRepository)
-        dockerfile: $(dockerfilePath)
-        containerRegistry: $(dockerRegistryServiceConnection)
-        tags: |
-          $(tag)
+    # Build Docker image
+    - script: |
+        echo "Building Docker image..."
+        sudo docker build -t $(containerRegistry)/$(imageRepository):$(tag) -f $(dockerfilePath) .
+      displayName: 'Build Docker Image'
 
-    # Replace image tag in Kubernetes manifest
+    # Login to ACR
+    - script: |
+        echo "Logging in to ACR..."
+        sudo az acr login --name $(containerRegistry)
+      displayName: 'Login to Azure Container Registry'
+
+    # Push Docker image to ACR
+    - script: |
+        echo "Pushing Docker image to ACR..."
+        sudo docker push $(containerRegistry)/$(imageRepository):$(tag)
+      displayName: 'Push Docker Image to ACR'
+
+    # Update Kubernetes manifest
     - script: |
         echo "Updating manifest with new image tag..."
         sed -i "s|$(containerRegistry)/$(imageRepository):.*|$(containerRegistry)/$(imageRepository):$(tag)|g" $(manifestsPath)

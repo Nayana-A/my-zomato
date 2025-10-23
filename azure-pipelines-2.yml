@@ -14,6 +14,10 @@ variables:
   namespace: 'prod'
   manifestsPath: '.github/manifests/deployment.yaml'
 
+  azureServicePrincipalId: ''   # fill your SP appId
+  azureServicePrincipalKey: ''  # fill your SP password
+  azureTenantId: ''             # fill your tenantId
+
 pool:
   name: magedpool
 
@@ -58,24 +62,38 @@ stages:
         az version
       displayName: 'Install Azure CLI'
 
-    # ✅ Login to Azure & ACR
+    # ✅ Login to Azure & ACR using Service Principal
     - script: |
-        echo "Logging into Azure..."
-        az login --identity || echo "Using Managed Identity if available"
-        echo "Logging into ACR..."
-        az acr login --name myacr
-      displayName: 'Login to Azure and ACR'
+        echo "Ensuring Docker permissions..."
+        sudo usermod -aG docker $(whoami)
+        sudo systemctl restart docker
+        sleep 5
+
+        echo "Logging into Azure via Service Principal..."
+        az login --service-principal \
+          -u $(servicePrincipalId) \
+          -p $(servicePrincipalKey) \
+          --tenant $(tenantId)
+
+        echo "Logging into Azure Container Registry..."
+        az acr login --name $(containerRegistry)
+      env:
+        servicePrincipalId: $(azureServicePrincipalId)
+        servicePrincipalKey: $(azureServicePrincipalKey)
+        tenantId: $(azureTenantId)
+        containerRegistry: $(containerRegistry)
+      displayName: 'Login to Azure and ACR using Service Principal'
 
     # ✅ Build Docker image
     - script: |
         echo "Building Docker image..."
-        sudo docker build -t $(containerRegistry)/$(imageRepository):$(tag) -f $(dockerfilePath) .
+        docker build -t $(containerRegistry)/$(imageRepository):$(tag) -f $(dockerfilePath) .
       displayName: 'Build Docker Image'
 
     # ✅ Push Docker image
     - script: |
         echo "Pushing image to ACR..."
-        sudo docker push $(containerRegistry)/$(imageRepository):$(tag)
+        docker push $(containerRegistry)/$(imageRepository):$(tag)
       displayName: 'Push Docker Image to ACR'
 
     # ✅ Update manifest with new tag

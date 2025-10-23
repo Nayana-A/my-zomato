@@ -38,6 +38,6 @@ steps:
     containerRegistry: 'ACR-myzomato'     # Create this service connection
     repository: '$(imageName)'
     command: 'buildAndPush'
-    Dockerfile: 'my-zomato/Dockerfile'
+    Dockerfile: '.github/manifests/Dockerfile'
     tags: |
       $(Build.BuildId)

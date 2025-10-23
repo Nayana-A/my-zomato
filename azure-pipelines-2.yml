@@ -9,15 +9,14 @@ resources:
 - repo: self
 
 variables:
-  # Container registry service connection established during pipeline creation
   dockerRegistryServiceConnection: '467aebc6-c2d7-48d1-af79-d79a67c80398'
   imageRepository: 'nayanaamyzomato'
   containerRegistry: 'myzomato.azurecr.io'
   dockerfilePath: 'Dockerfile'
   tag: '$(Build.BuildId)'
 
-  # Agent VM image name
-  pool:
+# ✅ Define your managed agent pool correctly here (not under variables)
+pool:
   name: magedpool
 
 stages:
@@ -26,7 +25,6 @@ stages:
   jobs:
   - job: Build
     displayName: Build
-    
     steps:
     - task: Docker@2
       displayName: Build and push an image to container registry

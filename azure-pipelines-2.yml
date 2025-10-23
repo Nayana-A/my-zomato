@@ -14,15 +14,11 @@ variables:
   namespace: 'prod'
   manifestsPath: '.github/manifests/deployment.yaml'
 
-  azureServicePrincipalId: ''   # fill your SP appId
-  azureServicePrincipalKey: ''  # fill your SP password
-  azureTenantId: ''             # fill your tenantId
-
 pool:
   name: magedpool
 
 stages:
-# ========== BUILD STAGE ==========
+# ================= BUILD STAGE =================
 - stage: Build
   displayName: 'Build and Push Docker Image'
   jobs:
@@ -36,17 +32,14 @@ stages:
         ls -R
       displayName: 'List Files in Repo'
 
-    # ✅ Install Docker manually
+    # Install Docker
     - script: |
         echo "Installing Docker..."
         sudo apt-get update -y
         sudo apt-get install -y ca-certificates curl gnupg lsb-release apt-transport-https software-properties-common
         sudo mkdir -p /etc/apt/keyrings
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-          https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
-          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
         sudo apt-get update -y
         sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
         sudo usermod -aG docker $(whoami)
@@ -55,14 +48,14 @@ stages:
         sudo docker version
       displayName: 'Install Docker on Managed Agent'
 
-    # ✅ Install Azure CLI
+    # Install Azure CLI
     - script: |
         echo "Installing Azure CLI..."
         curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
         az version
       displayName: 'Install Azure CLI'
 
-    # ✅ Login to Azure & ACR using Service Principal
+    # Login to Azure and ACR using Service Principal
     - script: |
         echo "Ensuring Docker permissions..."
         sudo usermod -aG docker $(whoami)
@@ -71,12 +64,12 @@ stages:
 
         echo "Logging into Azure via Service Principal..."
         az login --service-principal \
-          -u $(servicePrincipalId) \
-          -p $(servicePrincipalKey) \
-          --tenant $(tenantId)
+          -u $servicePrincipalId \
+          -p $servicePrincipalKey \
+          --tenant $tenantId
 
         echo "Logging into Azure Container Registry..."
-        az acr login --name $(containerRegistry)
+        az acr login --name $containerRegistry
       env:
         servicePrincipalId: $(azureServicePrincipalId)
         servicePrincipalKey: $(azureServicePrincipalKey)
@@ -84,28 +77,43 @@ stages:
         containerRegistry: $(containerRegistry)
       displayName: 'Login to Azure and ACR using Service Principal'
 
-    # ✅ Build Docker image
+    # Build Docker image
     - script: |
         echo "Building Docker image..."
-        docker build -t $(containerRegistry)/$(imageRepository):$(tag) -f $(dockerfilePath) .
+        sudo docker build -t $containerRegistry/$imageRepository:$tag -f $dockerfilePath .
+      env:
+        containerRegistry: $(containerRegistry)
+        imageRepository: $(imageRepository)
+        dockerfilePath: $(dockerfilePath)
+        tag: $(tag)
       displayName: 'Build Docker Image'
 
-    # ✅ Push Docker image
+    # Push Docker image
     - script: |
-        echo "Pushing image to ACR..."
-        docker push $(containerRegistry)/$(imageRepository):$(tag)
+        echo "Pushing Docker image to ACR..."
+        sudo docker push $containerRegistry/$imageRepository:$tag
+      env:
+        containerRegistry: $(containerRegistry)
+        imageRepository: $(imageRepository)
+        tag: $(tag)
       displayName: 'Push Docker Image to ACR'
 
-    # ✅ Update manifest with new tag
+    # Update Kubernetes manifest with new image tag
     - script: |
-        echo "Updating manifest with image tag..."
-        sed -i "s|image: .*|image: $(containerRegistry)/$(imageRepository):$(tag)|" $(manifestsPath)
+        echo "Updating Kubernetes manifest with new image tag..."
+        sed -i "s|image: .*|image: $containerRegistry/$imageRepository:$tag|" $manifestsPath
+      env:
+        containerRegistry: $(containerRegistry)
+        imageRepository: $(imageRepository)
+        tag: $(tag)
+        manifestsPath: $(manifestsPath)
       displayName: 'Update Kubernetes Manifest'
 
+    # Publish manifests as artifact
     - publish: .github/manifests
       artifact: manifests
 
-# ========== DEPLOY STAGE ==========
+# ================= DEPLOY STAGE =================
 - stage: Deploy
   displayName: 'Deploy to AKS'
   dependsOn: Build

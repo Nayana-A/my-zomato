@@ -2,7 +2,7 @@ trigger:
 - main
 
 variables:
-  dockerRegistryServiceConnection: '467aebc6-c2d7-48d1-af79-d79a67c80398' # ACR service connection ID or name
+  dockerRegistryServiceConnection: '467aebc6-c2d7-48d1-af79-d79a67c80398'
   imageRepository: 'foodcart-node'
   containerRegistry: 'myacr.azurecr.io'
   dockerfilePath: '.github/manifests/Dockerfile'
@@ -32,23 +32,57 @@ stages:
         ls -R
       displayName: 'List Files in Repo'
 
-    # ✅ Build & Push image using Docker@2 task (works in managed pools)
-    - task: Docker@2
-      displayName: 'Build and Push Image to ACR'
-      inputs:
-        containerRegistry: $(dockerRegistryServiceConnection)
-        repository: $(imageRepository)
-        command: 'buildAndPush'
-        Dockerfile: $(dockerfilePath)
-        tags: |
-          latest
-          $(tag)
+    # ✅ Install Docker manually
+    - script: |
+        echo "Installing Docker..."
+        sudo apt-get update -y
+        sudo apt-get install -y ca-certificates curl gnupg lsb-release apt-transport-https software-properties-common
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+          https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
+          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update -y
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        sudo usermod -aG docker $(whoami)
+        sudo systemctl start docker
+        sudo systemctl enable docker
+        sudo docker version
+      displayName: 'Install Docker on Managed Agent'
 
-    # ✅ Update Kubernetes manifest with new tag
+    # ✅ Install Azure CLI
+    - script: |
+        echo "Installing Azure CLI..."
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        az version
+      displayName: 'Install Azure CLI'
+
+    # ✅ Login to Azure & ACR
+    - script: |
+        echo "Logging into Azure..."
+        az login --identity || echo "Using Managed Identity if available"
+        echo "Logging into ACR..."
+        az acr login --name myacr
+      displayName: 'Login to Azure and ACR'
+
+    # ✅ Build Docker image
+    - script: |
+        echo "Building Docker image..."
+        sudo docker build -t $(containerRegistry)/$(imageRepository):$(tag) -f $(dockerfilePath) .
+      displayName: 'Build Docker Image'
+
+    # ✅ Push Docker image
+    - script: |
+        echo "Pushing image to ACR..."
+        sudo docker push $(containerRegistry)/$(imageRepository):$(tag)
+      displayName: 'Push Docker Image to ACR'
+
+    # ✅ Update manifest with new tag
     - script: |
         echo "Updating manifest with image tag..."
         sed -i "s|image: .*|image: $(containerRegistry)/$(imageRepository):$(tag)|" $(manifestsPath)
-      displayName: 'Update Kubernetes Manifest with New Image Tag'
+      displayName: 'Update Kubernetes Manifest'
 
     - publish: .github/manifests
       artifact: manifests
@@ -64,7 +98,6 @@ stages:
     - download: current
       artifact: manifests
 
-    # ✅ Use Azure DevOps Kubernetes task to deploy
     - task: Kubernetes@1
       displayName: 'Deploy to AKS'
       inputs:

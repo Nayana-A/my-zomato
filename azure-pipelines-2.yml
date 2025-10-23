@@ -1,42 +1,63 @@
-# Azure DevOps pipeline to build, push, and deploy to AKS
-# Trigger when main branch updates
+# Azure DevOps pipeline: Build, push Docker image and deploy to AKS
 trigger:
 - main
 
-resources:
-- repo: self
-
 variables:
-  # Update these with your actual values
-  dockerRegistryServiceConnection: '467aebc6-c2d7-48d1-af79-d79a67c80398'  # ACR service connection in Azure DevOps
-  azureSubscriptionEndpoint: 'default'                            # ARM connection to Azure
-  azureResourceGroup: 'my-rg'
-  kubernetesCluster: 'my-aks-cluster'
+  # Docker / ACR
+  dockerRegistryServiceConnection: '467aebc6-c2d7-48d1-af79-d79a67c80398'
   imageRepository: 'foodcart-node'
   containerRegistry: 'myacr.azurecr.io'
   dockerfilePath: 'Dockerfile'
-  manifestsPath: '.github/manifests/deployment.yaml'
   tag: '$(Build.BuildId)'
 
-# Use your managed agent pool
+  # AKS
+  azureSubscriptionEndpoint: 'default'
+  azureResourceGroup: 'Nayana'
+  kubernetesCluster: 'managedevopsagent'
+  namespace: 'prod'
+  manifestsPath: '.github/manifests/deployment.yaml'
+
+# Use your self-hosted managed agent
 pool:
   name: magedpool
 
 stages:
+
 # ----------------------------
 # 1️⃣ Build & Push Docker Image
 # ----------------------------
 - stage: Build
-  displayName: 'Build and Push Image to ACR'
+  displayName: 'Build and Push Docker Image'
   jobs:
   - job: Build
-    displayName: 'Build and Push'
+    displayName: 'Build & Push'
     steps:
+
+    # 🐳 Install Docker if not present (Linux agent example)
     - script: |
-        echo "Checking Docker installation..."
+        echo "Installing Docker..."
+        sudo apt-get update -y
+        sudo apt-get install -y ca-certificates curl gnupg lsb-release
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+          https://download.docker.com/linux/ubuntu \
+          $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update -y
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        sudo systemctl start docker
+        sudo systemctl enable docker
+        docker --version
+      displayName: 'Install Docker on Agent'
+
+    # Verify Docker is available
+    - script: |
+        echo "Verifying Docker installation..."
         docker version
       displayName: 'Verify Docker Availability'
 
+    # Build and push Docker image to ACR
     - task: Docker@2
       displayName: 'Build and Push Image to ACR'
       inputs:
@@ -47,14 +68,13 @@ stages:
         tags: |
           $(tag)
 
-    - task: Bash@3
-      displayName: 'Replace image tag in manifest'
-      inputs:
-        targetType: 'inline'
-        script: |
-          sed -i "s|\$(Build.BuildId)|$(tag)|g" $(manifestsPath)
-          echo "Updated manifest file with tag $(tag)"
-    
+    # Replace image tag in Kubernetes manifest
+    - script: |
+        echo "Updating manifest with new image tag..."
+        sed -i "s|$(containerRegistry)/$(imageRepository):.*|$(containerRegistry)/$(imageRepository):$(tag)|g" $(manifestsPath)
+      displayName: 'Update Kubernetes Manifest with Image Tag'
+
+    # Publish manifest as artifact
     - publish: .github/manifests
       artifact: manifests
 
@@ -66,11 +86,13 @@ stages:
   dependsOn: Build
   jobs:
   - job: Deploy
-    displayName: 'Deploy Application'
+    displayName: 'Deploy Application to AKS'
     steps:
+    # Download the updated manifest
     - download: current
       artifact: manifests
 
+    # Deploy manifest to AKS
     - task: Kubernetes@1
       displayName: 'Deploy to AKS'
       inputs:
@@ -78,7 +100,7 @@ stages:
         azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
         azureResourceGroup: $(azureResourceGroup)
         kubernetesCluster: $(kubernetesCluster)
-        namespace: 'default'
+        namespace: $(namespace)
         command: 'apply'
         useConfigurationFile: True
         configuration: '$(Pipeline.Workspace)/manifests/deployment.yaml'

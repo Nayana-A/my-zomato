@@ -19,7 +19,9 @@ variables:
   imagePullSecret: 'myzomato16217279-auth'
 
   # Agent VM image name
-  vmImageName: 'ubuntu-latest'
+  pool:
+  name: magedpool
+  
 
   # Name of the new namespace being created to deploy the PR changes.
   k8sNamespaceForPR: 'review-app-$(System.PullRequest.PullRequestId)'

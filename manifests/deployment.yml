@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: nayanaamyzomato 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nayanaamyzomato
+  template:
+    metadata:
+      labels:
+        app: nayanaamyzomato 
+    spec:
+      containers:
+        - name: nayanaamyzomato 
+          image: myzomato.azurecr.io/nayanaamyzomato
+          ports:
+          - containerPort: 3000
